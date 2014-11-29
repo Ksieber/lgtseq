@@ -47,8 +47,7 @@ use print_call;
 use Scalar::Util qw(reftype);
 use POSIX;
 use run_cmd;
-use lib ( '/home/ksieber/perl5/lib/perl5/', '/local/projects-t3/HLGT/scripts/lgtseek/lib/', '/local/projects/ergatis/package-driley/lib/perl5/x86_64-linux-thread-multi/' )
-    ;    # 11.11.14 Added '/home/ksieber/perl5/lib/perl5/' to lib, may break it?
+use lib ( '/home/ksieber/perl5/lib/perl5/', '/local/projects-t3/HLGT/scripts/lgtseek/lib/', '/local/projects/ergatis/package-driley/lib/perl5/x86_64-linux-thread-multi/' );
 use LGTSeek;
 use File::Basename;
 use setup_input;
@@ -307,17 +306,12 @@ foreach my $input (@$input) {
     }
 
     if ( $options{launch_analysis} == 1 ) {
-
-        # my $analysis_dir     = $options{analysis_dir}     ? $options{analysis_dir}     : $original_output_dir; ## Old
-        my $analysis_dir = $options{analysis_dir} ? $options{analysis_dir} : $lgtseek->{output_dir};    ## New 11.09.14
-               # if ( $options{tcga_dirs} == 1 ) { $analysis_dir = $analysis_dir . "/$tcga_dir\/"; }                               ## Old
-        if ( $options{analysis_dir} and $options{tcga_dirs} == 1 ) { $analysis_dir = $analysis_dir . "/$tcga_dir\/"; }    ## New 11.09.14
+        my $analysis_dir = $options{analysis_dir} ? $options{analysis_dir} : $lgtseek->{output_dir};
+        if ( $options{analysis_dir} and $options{tcga_dirs} == 1 ) { $analysis_dir = $analysis_dir . "/$tcga_dir\/"; }
 
         my $analysis_threads = $options{analysis_threads} ? $options{analysis_threads} : $lgtseek->{threads};
         my $lgtseq_analysis_cmd
             = "/home/ksieber/scripts/lgtseq_analysis.pl --input_list=$lgtseek->{output_dir}/output.list --output_dir=$analysis_dir --threads=$analysis_threads --sub_mem=$lgtseek->{sub_mem} --subdirs=1";
-
-        # if   ( !$options{tcga_dirs} )         { $lgtseq_analysis_cmd = $lgtseq_analysis_cmd . " --tcga_dirs=1"; } ## OLD
         if   ( $options{analysis_iter} == 1 ) { $lgtseq_analysis_cmd = $lgtseq_analysis_cmd . " --Qsub_iterate=1"; }
         else                                  { $lgtseq_analysis_cmd = $lgtseq_analysis_cmd . " --Qsub=1"; }
         if ( $options{verbose} == 1 )  { $lgtseq_analysis_cmd = $lgtseq_analysis_cmd . " --verbose=1"; }

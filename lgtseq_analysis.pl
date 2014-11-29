@@ -22,7 +22,7 @@ Internal methods are usually preceded with "_"
 
 =cut
 
-my $LGTSEQ_ANALYSIS = '1.00';
+my $LGTSEQ_ANALYSIS = '1.01';
 
 use lib ( "/local/projects-t3/HLGT/scripts/lgtseek/lib/", "/local/projects/ergatis/package-driley/lib/perl5/x86_64-linux-thread-multi/" );
 use warnings;
@@ -311,26 +311,30 @@ foreach my $input (@$inputs) {
             }
         );
 
-        # Fix the header for the final LGT bam.
-        my $Picard        = "$lgtseek->{java_bin} \-$lgtseek->{java_opts} -jar $lgtseek->{Picard_jar}";
-        my $cmd           = "$Picard AddCommentsToBam I=$hg19_lgt_bam->[0] O=$output_dir/$name\_lgt_final.bam";
-        my $header_string = $lgtseek->_run_cmd("samtools view -H $blast_validated_lgt->{bam}");
-        print STDERR "FOO1: $header_string\n";
-        my @pg_list = grep( /^\@PG|^\@CO/, split( /\n/, $header_string ) );
-        print STDERR "Foo2: @pg_list\n";
-        map {
-            if ( $_ !~ /ID:bwa/ ) {
-                my @split_pg_line = split( /\t/, $_ );
-                shift(@split_pg_line);    # remove BWA \@PG line
-                my $comment_line = join( "\t", @split_pg_line );
-                $cmd = $cmd . " C=\"$comment_line\"";
-            }
-        } @pg_list;
-        $lgtseek->_run_cmd("$cmd");
-        $lgtseek->_run_cmd("rm $hg19_lgt_bam->[0]");
+        # Fix the header of the final LGT bam.
+        if ( defined $hg19_lgt_bam and $lgtseek->empty_chk( { input => $hg19_lgt_bam->[0] } ) != 1 ) {
+            my $Picard        = "$lgtseek->{java_bin} \-$lgtseek->{java_opts} -jar $lgtseek->{Picard_jar}";
+            my $cmd           = "$Picard AddCommentsToBam I=$hg19_lgt_bam->[0] O=$output_dir/$name\_lgt_final.bam";
+            my $header_string = $lgtseek->_run_cmd("samtools view -H $blast_validated_lgt->{bam}");
+            my @pg_list       = grep( /^\@PG|^\@CO/, split( /\n/, $header_string ) );
+            map {
+                if ( $_ !~ /ID:bwa/ ) {
+                    my @split_pg_line = split( /\t/, $_ );
+                    shift(@split_pg_line);    # remove BWA \@PG line
+                    my $comment_line = join( "\t", @split_pg_line );
+                    $cmd = $cmd . " C=\"$comment_line\"";
+                }
+            } @pg_list;
+
+            # Run the Picard command to add comments from previous analyses to the final bam.
+            $lgtseek->_run_cmd("$cmd");
+
+            # Remove the old lgt_final.bam aligned to hg19 with the wrong header.
+            $lgtseek->_run_cmd("rm $hg19_lgt_bam->[0]");
+        }
 
         # Run blast and keep raw output
-        #my $blast_ret = $lgtseek->_run_cmd("blastall -p blastn -a $lgtseek->{threads} -e 10e-5 -T F -d $lgtseek->{path_to_blastdb} -i $lgt_fasta > $output_dir/blast_validation/$name\_blast.raw");
+        # my $blast_ret = $lgtseek->_run_cmd("blastall -p blastn -a $lgtseek->{threads} -e 10e-5 -T F -d $lgtseek->{path_to_blastdb} -i $lgt_fasta > $output_dir/blast_validation/$name\_blast.raw");
     }
 
     ##++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

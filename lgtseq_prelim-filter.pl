@@ -24,7 +24,7 @@ Internal methods are usually preceded with a _
 
 =cut
 
-my $LGTSEQ_PRELIM = '1.00';
+my $LGTSEQ_PRELIM = '1.02';
 
 use warnings;
 no warnings 'uninitialized';
@@ -118,7 +118,7 @@ if ( !$options{input} and !$options{input_list} ) { die "Error: Must give input 
 $options{prelim_filter} = defined $options{prelim_filter} ? "$options{prelim_filter}" : "1";
 $options{sub_mem}       = defined $options{sub_mem}       ? "$options{sub_mem}"       : "5G";
 $options{output_list}   = defined $options{output_list}   ? "$options{output_list}"   : "1";
-if ( defined $options{input_list} and $options{input_list} == 1 ) { $options{subdirs} = 1; }
+if ( defined $options{input_list} ) { $options{subdirs} = 1; }
 
 my $lgtseek = LGTSeek->new2( \%options );
 

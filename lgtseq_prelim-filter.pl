@@ -43,7 +43,7 @@ my $results = GetOptions(
 ) or die "Error: Unrecognized command line option. Please try again.\n";
 use print_call;
 
-# print_hostname(\%options);                                    ## This is useful for trouble shooting grid nodes that might be missing modules for LGTSeek etc.
+# print_hostname(\%options);                                    ## This is useful for trouble shooting grid nodes that might be missing modules etc.
 use Scalar::Util qw(reftype);
 use POSIX;
 use run_cmd;
@@ -203,7 +203,7 @@ foreach my $input (@$input) {
         ## Skip to next input for qsub
         next;
     }
-
+    print_call( \%options );
     print_notebook( \%options );
 
     my $bam_downloaded;

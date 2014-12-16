@@ -22,7 +22,7 @@ Internal methods are usually preceded with "_"
 
 =cut
 
-my $LGTSEQ_ANALYSIS = '1.01';
+my $LGTSEQ_ANALYSIS = '1.02';
 
 use lib ( "/local/projects-t3/HLGT/scripts/lgtseek/lib/", "/local/projects/ergatis/package-driley/lib/perl5/x86_64-linux-thread-multi/" );
 use warnings;
@@ -94,6 +94,11 @@ foreach my $input (@$inputs) {
     if ( $lgtseek->{subdirs} == 1 )   { $output_dir = $output_dir . "/$subdir\/"   unless ( $lgtseek->{output_dir} =~ /$subdir\/*$/ ); }
     $output_dir =~ s/\/{2,}/\//g;
     run_cmd("mkdir -p -m u=rwx,g=rwx,o= $output_dir");
+
+    if ( -e "$output_dir/$name\_lgt_final.bam" and $overwrite == 0 ) {
+        print STDERR "*** Warning *** Already found the final expected output: $output_dir/$name\_lgt_final.bam.\n*** Warning *** Now exiting. If you want to redo the analysis use --overwrite=1.\n";
+        next;
+    }
 
     print_notebook( \%options );
 

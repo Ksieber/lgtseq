@@ -24,7 +24,7 @@ Internal methods are usually preceded with a _
 
 =cut
 
-my $LGTSEQ_PRELIM = '1.02';
+my $LGTSEQ_PRELIM = '1.04';
 
 use warnings;
 no warnings 'uninitialized';
@@ -39,7 +39,7 @@ my $results = GetOptions(
     'projects=s',        'output_dir|o=s',  'subdirs=i',       'overwrite=s',       'samtools_bin=s',      'ergatis_dir=s', 'output_list=s',  'bin_dir=s',
     'fs=s',              'clovr=s',         'diag',            'verbose|V=i',       'print_hostname|ph=i', 'config_file=s', 'help|h',         'help_full|?',
     'tcga_dirs=i',       'aln_human=i',     'hg19_ref=s',      'no_gal=i',          'hostname=s',          'sub_mail=s',    'Qsub_iterate=i', 'cleanup_download=i',
-    'launch_analysis=i', 'analysis_dir=s',  'analysis_iter=i', 'name_sort_check=i', 'analysis_threads=i',
+    'launch_analysis=i', 'analysis_dir=s',  'analysis_iter=i', 'name_sort_check=i', 'analysis_threads=i',  'analysis_mem=s'
 ) or die "Error: Unrecognized command line option. Please try again.\n";
 use print_call;
 
@@ -310,8 +310,9 @@ foreach my $input (@$input) {
         if ( $options{analysis_dir} and $options{tcga_dirs} == 1 ) { $analysis_dir = $analysis_dir . "/$tcga_dir\/"; }
 
         my $analysis_threads = $options{analysis_threads} ? $options{analysis_threads} : $lgtseek->{threads};
+        my $analysis_mem     = $options{analysis_mem}     ? $options{analysis_mem}     : $lgtseek->{sub_mem};
         my $lgtseq_analysis_cmd
-            = "/home/ksieber/scripts/lgtseq_analysis.pl --input_list=$lgtseek->{output_dir}/output.list --output_dir=$analysis_dir --threads=$analysis_threads --sub_mem=$lgtseek->{sub_mem} --subdirs=1";
+            = "/home/ksieber/scripts/lgtseq_analysis.pl --input_list=$lgtseek->{output_dir}/output.list --output_dir=$analysis_dir --threads=$analysis_threads --sub_mem=$analysis_mem --subdirs=1";
         if   ( $options{analysis_iter} == 1 ) { $lgtseq_analysis_cmd = $lgtseq_analysis_cmd . " --Qsub_iterate=1"; }
         else                                  { $lgtseq_analysis_cmd = $lgtseq_analysis_cmd . " --Qsub=1"; }
         if ( $options{verbose} == 1 )  { $lgtseq_analysis_cmd = $lgtseq_analysis_cmd . " --verbose=1"; }

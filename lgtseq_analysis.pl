@@ -22,9 +22,9 @@ Internal methods are usually preceded with "_"
 
 =cut
 
-my $LGTSEQ_ANALYSIS = '1.02';
+my $LGTSEQ_ANALYSIS = '1.03';
 
-use lib ( "/local/projects-t3/HLGT/scripts/lgtseek/lib/", "/local/projects/ergatis/package-driley/lib/perl5/x86_64-linux-thread-multi/" );
+use lib ( '/home/ksieber/perl5/lib/perl5/', '/local/projects-t3/HLGT/scripts/lgtseek/lib/', '/local/projects/ergatis/package-driley/lib/perl5/x86_64-linux-thread-multi/' );
 use warnings;
 use strict;
 use Getopt::Long qw(:config no_ignore_case no_auto_abbrev);
@@ -37,7 +37,7 @@ my $results = GetOptions(
     'host_lineage=s', 'threads|t=i',         'taxon_host=s',     'taxon_dir=s',     'taxon_idx_dir=s',   'path_to_blastdb=s', 'best_hits_only=i', 'evalue_cutoff=s',
     'verbose|V=i',    'print_hostname|ph=i', 'conf_file=s',      'help|h',          'help_full|?',       'workflow_help',     'conf_help',        'sub_mail=s',
     'Qsub_iterate=i', 'overwrite=i',         'project=s',
-) or die "Error: Unrecognized command line option. Please try again.\n";
+) or die "\n*** Error *** Unrecognized command line option. Please try again.\n\n";
 
 ## Check if the user needs help information
 if ( $options{help} )          { &help; }             ## @ end of script
@@ -59,7 +59,7 @@ use File::Basename;
 
 ## Check we have the necessary inputs
 if ( !$options{input} and !$options{input_list} ) {
-    confess "Error: Please give an input.bam with --input=<FILE> or --input_list=<LIST>. Try again or use --help_full.\n";
+    die "\n*** Error *** Please give an input.bam with --input=<FILE> or --input_list=<LIST>. Try again or use --help.\n\n";
 }
 if ( !$options{output_dir} ) {
     print "It is HIGHLY recommended you STOP, restart, and use a --output_dir=</some/path/>.\n";
@@ -77,7 +77,7 @@ if ( $options{Qsub} or $options{Qsub_iterate} ) {
 }
 
 ## Print the script call
-print_call( \%options, "LGTSEQ_ANALYSIS_VERSION=$LGTSEQ_ANALYSIS" );
+print_call( \%options, "LGTSEQ_ANALYSIS_VERSION=$LGTSEQ_ANALYSIS\tLGTSeek.pm_VERSION=$LGTSeek::VERSION" );
 
 ## Setup array ref of inputs
 my $inputs = setup_input( \%options );
@@ -95,7 +95,7 @@ foreach my $input (@$inputs) {
     $output_dir =~ s/\/{2,}/\//g;
     run_cmd("mkdir -p -m u=rwx,g=rwx,o= $output_dir");
 
-    if ( -e "$output_dir/$name\_lgt_final.bam" and $overwrite == 0 ) {
+    if ( -e "$output_dir/$name\_lgt_final.bam" and $lgtseek->{overwrite} == 0 ) {
         print STDERR "*** Warning *** Already found the final expected output: $output_dir/$name\_lgt_final.bam.\n*** Warning *** Now exiting. If you want to redo the analysis use --overwrite=1.\n";
         next;
     }
@@ -261,6 +261,7 @@ foreach my $input (@$inputs) {
         my $best_blasts = $lgtseek->bestBlast2(
             {   bam        => $filtered_bam->{bam},
                 db         => $lgtseek->{path_to_blastdb},
+                blast_bin  => $lgtseek->{blast_bin},
                 threads    => $lgtseek->{threads},
                 lineage1   => $lgtseek->{donor_lineage},
                 lineage2   => $lgtseek->{host_lineage},
@@ -404,7 +405,7 @@ foreach my $input (@$inputs) {
     }
 
     $lgtseek->time_check;
-    print_complete( \%options, "LGTSEQ_ANALYSIS_VERSION=$LGTSEQ_ANALYSIS" );
+    print_complete( \%options, "LGTSEQ_ANALYSIS_VERSION=$LGTSEQ_ANALYSIS\tLGTSeek.pm_VERSION=$LGTSeek::VERSION" );
 }
 
 ## Subroutines
@@ -421,8 +422,7 @@ sub help {
     die "Help: This script will identify bacterial human LGT.
     --input=                <Input> Accepts bams, fastq, and fastq.gz. With fatsq's only use 1 of the pair for input. (ie: foo_1.fastq.gz)
     --output_dir=           Directory for all output. Will be created if it doesn't exist. 
-    --help_full|?           Full help info on options.
-    --workflow_help         Help setting up an efficient lgtseq workflow with the optional steps.\n";
+    --help_full|?           Full help info on options.\n";
 }
 
 sub help_full {
@@ -434,10 +434,10 @@ sub help_full {
     --input_list|I=         <List of inputs> 1 per line.
          ______
     ____/Output\\________________________________________________________________________________
-    --output_dir|o=         Directory for all output. Example: /path/to/{output_dir}/{tcga_dirs}/{subdirs}/ || /path/to/{output_dir}/{subdirs}/
+    --output_dir|o=         Directory for all output. Example: /path/to/{output_dir}/{tcga_dirs}/{subdirs}/ or /path/to/{output_dir}/{subdirs}/
      --tcga_dirs=           <0|1> [0] 1= Make the sub-dir prefix the input's last folder in path (Maintain TCGA analysis_id directory structure)
       --subdirs=            <0|1> [0] 1= Make the sub-dir prefix in output_dir based on input name.
-    --overwrite=            <0|1> [0] 1= Overwrite previously data. 
+    --overwrite=            <0|1> [1] 1= Overwrite previous data. 
          _______________________
     ____/Primary Human Alignment\\_______________________________________________________________
     --aln1_human=           <0|1> [0] 1= Primary aln to hg19. MUST be used if input=fastq's
@@ -486,24 +486,58 @@ sub workflow_help {
 ## This section isn't complete yet and not check to make sure these param's ARE in the .conf file
 sub conf_help {
     die "== The .lgtseek.conf file options. Options with \"\*\" are mandatory. This list is NOT an exhaustive list of mandatory options (yet).
-== The format of the ~/.lgtseek.conf is \"tab\" (white space) delimited \$option_name \\t \$option_value. ex: threads    4
+== The format of the ~/.lgtseek.conf is white space delimited \$option_name \\t \$option_value. ex: threads    4
+== When using lgtseek->new2(\%options), any options passed through \%options will over ride any of these defaults, otherwise all these defaults are loaded through new2.
+== lgtseek->new2() will look for the .lgtseek.conf file in the user's home directory (~/.lgtseek.conf). If it isn't there it needs to be passed with --conf_file=/path/to/.lgtseek.conf 
+             _________
+        ____/Workflow \\______________________________________________________________________________        
+        aln1_human              [0]             Align the input to the hg19 ref BEFORE prelim-filtering.
+        aln2_human              [0]             Align the input to the hg19 ref AFTER prelim-filtering.
+        prelim_filter           [0]             Keep only M_U and U_U reads, and potentially soft clipped reads (see below)
+        name_sort_input         [0]             All inputs MUST be converted to name sorted format if they aren't already. 
+             ______________
+        ____/Config Options\\_________________________________________________________________________
+        threads                 [4]             Number of threads used.
+        sort_mem                [1G]            RAM used to name sort bams. Suggested 1G w/ 4 cpu for RNA & WXS. WGS 5G 8 cpu, or 10G, 4 cpu. 
+        verbose                 [1]
+        overwrite               [1]
+        subdirs                 [0]                 
+        tcga_dirs               [0]             
+        keep_softclip           [1]             While prelim-filtering, keep soft clipped reads as potenti reads on the LGT. Only keeps soft clipped on the end (ie 40M24S)
+        softclip_min            [24]            Min length of clipped region to keep. This prevents keeping little 1-3 bp soft clipped reads.
+        split_bam               [1]             In prelim-filtering, split the output prelim bams. 
+        seqs_per_file           [50000000]      Number of reads per split prelim bam. 
+        max_overlap             [5]             In blast validation, when looking for reads on the LGT, the max number of bases blast results can overlap. 
+        min_length              [15]            In blast validation, when looking for reads on the LGT, the min number of bases on the host & donor.
+        cleanup_download        [1]             If a file was downloaded in prelim-filtering, delete it after filtering is complete. 
+        retry_attempts          [3]             Number of attempts to download a file. 
+        rate_limit              [10]            Mb/s download rate limit. 
              __________
         ____/References\\_____________________________________________________________________________
-        hg19_ref*            Path to hg19 reference
-        split_bac_list*      Path to the list of split bacterial references (A2D, E2P, R2Z)
-        refseq_list*         Path to all bacterial references in refseq. 
+        hg19_ref*               [/local/projects-t3/HLGT/references/hg19/hg19.fa]                                       Path to hg19 reference
+        split_bac_list*         [/local/projects-t3/HLGT/references/split_bacteria/all_bacteria.list]                   Path to the list of split bacterial references (A2D, E2P, R2Z)
+        refseq_list*            [/local/projects-t3/HLGT/references/refseq_bacteria_BWA_INDEXED_20110831/refseq.list]   Path to all bacterial references in refseq. 
              ____________
         ____/SGE-Options\\____________________________________________________________________________ 
-        project*             SGE Project name
-        sub_mem            
-        sub_name
-        threads
+        project*                SGE Project name. MUST CHANGE!!!
+        sub_mem                 [5G]            min free RAM on SGE node. 
+        sub_name                [lgtseq]        Name for the job in SGE. 
              ______________
         ____/Bin Directories\\________________________________________________________________________
-        bin_dir*              [/local/projects-t3/HLGT/scripts/lgtseek/bin/]
-        taxon_host*           [mongotest1-lx.igs.umaryland.edu:10001]
-        taxon_dir*            [/local/db/repository/ncbi/blast/20120414_001321/taxonomy/]
-        taxon_idx_dir*        [/local/projects-t3/HLGT/idx_dir/20120414]
-        path_to_blastdb*      [/local/db/repository/ncbi/blast/20120414_001321/nt/nt]\n";
+        bin_dir*                [/local/projects-t3/HLGT/scripts/lgtseek/bin/]
+        taxon_host*             [revan.igs.umaryland.edu:10001]
+        taxon_dir*              [/local/db/repository/ncbi/blast/20120414_001321/taxonomy/]
+        taxon_idx_dir*          [/local/projects-t3/HLGT/idx_dir/20120414]
+        path_to_blastdb*        [/local/db/repository/ncbi/blast/20120414_001321/nt/nt]
+        Picard_jar*             [/home/ksieber/lib/picard/dist/picard.jar]
+        java_opts*              [Xmx2g]
+        java_bin*               [/usr/bin/java]
+        python_2_7_path*        [/home/ksieber/lib/Python-2.7.7/bin/python2.7]
+        prinseq_bin*            [/home/ksieber/lib/prinseq-lite-0.20.3/prinseq-lite.pl]
+        samtools_bin*           [samtools]
+        ergatis_bin*            [/local/projects/ergatis/package-driley/bin/]
+        genetorrent_path        [/home/ksieber/bin/]
+        cghub_key               Key file to download data from CGHub
+        \n";
 }
 

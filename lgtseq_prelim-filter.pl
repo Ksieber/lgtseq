@@ -15,7 +15,7 @@ allowing for lgtseq_analysis.pl to run dramatically quicker.
 
 =head1 AUTHOR - Karsten Sieber
 
-e-mail: ksieber@som.umaryland.edu
+e-mail: Karsten.sieber@gmail.com
 
 =head1 APPENDIX
 
@@ -24,7 +24,7 @@ Internal methods are usually preceded with a _
 
 =cut
 
-my $LGTSEQ_PRELIM = '1.04';
+my $LGTSEQ_PRELIM = '1.05';
 
 use warnings;
 no warnings 'uninitialized';
@@ -85,7 +85,7 @@ if ( $options{help_full} ) {
         --output_dir|o=         Directory for all output. Example: /path/to/{output_dir}/{tcga_dirs}/{subdirs}/ || /path/to/{output_dir}/{subdirs}/
          --tcga_dirs=           <0|1> [0] 1= Make the sub-dir prefix the input's last folder in path (Maintain TCGA analysis_id directory structure)
           --subdirs=            <0|1> [0] 1= Make the sub-dir prefix in output_dir based on input name.
-        --overwrite=            <0|1> [0] 1= Overwrite previous files.
+        --overwrite=            <0|1> [1] 1= Overwrite previous files. ** HIGHLY ** Recommended to turn this *ON* if *restarting* lgtseq_prelim-filter.pl.
         --cleanup_download      <0|1> [1] 1= Remove downloaded bam after prelim filter is complete.
              ___________
         ____/SGE Options\\____________________________________________________________________________
@@ -97,13 +97,14 @@ if ( $options{help_full} ) {
           --sub_mail=           [0] 1= email \$user\@som.umaryland.edu when job is complete & with stats. Can also specify --sub_mail=specific\@email.foo
              _____________
         ____/Launch LGTSeq\\__________________________________________________________________________
-        --launch_analysis=      <0|1> [0] 1= Start lgtseq_analysis.pl on each file from the prelim_filtering output.list.  
+        --launch_analysis=      <0|1> [0]       1= Start lgtseq_analysis.pl on each file from the prelim_filtering output.list.  
                                   ~/.lgtseek.conf defaults, except --threads, --sub_mem, --subdirs=1, & --analysis_dir
-        --analysis_dir=         [--output_dir] Specify the directory for lgtseq_analysis.
-        --analysis_threads=     [--threads] Specify # threads for lgtseq_analysis.pl only. 
-        --analysis_iter=        <0|1> [0] 1= The lgtseq_analysis.pl will iterate over the list of outputs instead of submitting each seperately. 
-                                          0= Submit each file from the output.list from prelim_filtering to the grid for lgtseq_analysis. 
-                                          Suggested NOT to --split_bams if iterating. 
+        --analysis_dir=         [--output_dir]  Specify the directory for lgtseq_analysis.
+        --analysis_threads=     [--threads]     Specify # threads for lgtseq_analysis.pl only.
+        --analysis_mem=         [.lgtseq.conf]  Specify SGE sub mem for lgtseq_analysis.pl. 
+        --analysis_iter=        <0|1> [0]       1= The lgtseq_analysis.pl will iterate over the list of outputs instead of submitting each seperately. 
+                                                0= Submit each file from the output.list from prelim_filtering to the grid for lgtseq_analysis. 
+                                                Suggested NOT to --split_bams if iterating. 
         ----------------------------------------------------------------------------------------------
         --verbose               <0|1> [0] 1= Verbose reporting of progress. 0 =Turns off reports. 
         --help|h                Basic Help Info
@@ -134,6 +135,9 @@ elsif ( $options{input_list} ) {
 my $x = 0;
 
 my $original_output_dir = $lgtseek->{output_dir};
+
+## Print the script call 
+print_call( \%options, "LGTSEQ_PRELIM_VERSION=$LGTSEQ_PRELIM\tLGTSeek.pm_VERSION=$LGTSeek::VERSION" );
 
 foreach my $input (@$input) {
 
@@ -322,7 +326,7 @@ foreach my $input (@$input) {
     }
 }
 
-&print_complete( \%options, "LGTSEQ_PRELIM_VERSION=$LGTSEQ_PRELIM" );
+&print_complete( \%options, "LGTSEQ_PRELIM_VERSION=$LGTSEQ_PRELIM\tLGTSeek.pm_VERSION=$LGTSeek::VERSION" );
 
 __END__
 

@@ -67,14 +67,14 @@ if ( $options{help_full} ) {
     This script is primarily used to filter data before lgtseq_analysis.pl. It can also download CGHub data, filter, and start lgtseq_analysis.pl
              _____________
         ____/Input Options\\__________________________________________________________________________
-        --input|i=              File to LGTSeq prelim filter. May be: .bam, .fq, or an analysis_id to download.
+        --input|i=              File to LGTSeq prelim filter. May be: .bam, .fq, or an analysis_id to download. 
         --input_list|I=         <LIST of INPUTS> File with 1 input per line or comma seperated at command line. 
              _________________
         ____/Filtering Options\\______________________________________________________________________
         --aln_human =           <0|1> [0] 1= Align the input bam or fastq's to hg19 before filtering. **MUST** be name sorted input.
         --prelim_filter=        <0|1> [1] 1= Filter out M_M reads, keeping MU,UU,and SC. 
           --keep_softclip=      <0|1> [1] 1= Keep soft clipped reads >=24 bp (Reads potentially on LGT) 
-        --name_sort_input=      <0|1> [0] 1= Resort the input bam by read names.
+        --name_sort_input=      <0|1> [0] 1= Resort the input bam by read names. If the input is analysis_id, --name_sort_input=[1].
           --sort_mem=           [1G] Mem per thread to sort with. 
           --threads=            [1] # of threads. 
         --name_sort_check=      <0|1> [--name_sort_input] 1= Quick & dirty check for proper pairing of sorted.bam. 
@@ -83,8 +83,8 @@ if ( $options{help_full} ) {
              ______________
         ____/Output Options\\_________________________________________________________________________
         --output_dir|o=         Directory for all output. Example: /path/to/{output_dir}/{tcga_dirs}/{subdirs}/ || /path/to/{output_dir}/{subdirs}/
-         --tcga_dirs=           <0|1> [0] 1= Make the sub-dir prefix the input's last folder in path (Maintain TCGA analysis_id directory structure)
-          --subdirs=            <0|1> [0] 1= Make the sub-dir prefix in output_dir based on input name.
+         --tcga_dirs=           <0|1> [0] 1= Maintain TCGA analysis_id directory structure. If the input is an analysis_id, --tcga_dirs=[1].
+          --subdirs=            <0|1> [0] 1= Make the sub-dir prefix in output_dir based on input name. If the input is an analysis_id, & --subdirs=[1].
         --overwrite=            <0|1> [1] 1= Overwrite previous files. ** HIGHLY ** Recommended to turn this *ON* if *restarting* lgtseq_prelim-filter.pl.
         --cleanup_download      <0|1> [1] 1= Remove downloaded bam after prelim filter is complete.
              ___________
@@ -98,7 +98,7 @@ if ( $options{help_full} ) {
              _____________
         ____/Launch LGTSeq\\__________________________________________________________________________
         --launch_analysis=      <0|1> [0]       1= Start lgtseq_analysis.pl on each file from the prelim_filtering output.list.  
-                                  ~/.lgtseek.conf defaults, except --threads, --sub_mem, --subdirs=1, & --analysis_dir
+                                  ~/.lgtseek.conf defaults, except {--threads}, {--sub_mem}, {--subdirs=1}, & {--analysis_dir}
         --analysis_dir=         [--output_dir]  Specify the directory for lgtseq_analysis.
         --analysis_threads=     [--threads]     Specify # threads for lgtseq_analysis.pl only.
         --analysis_mem=         [.lgtseq.conf]  Specify SGE sub mem for lgtseq_analysis.pl. 

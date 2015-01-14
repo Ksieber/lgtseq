@@ -22,7 +22,7 @@ Internal methods are usually preceded with "_"
 
 =cut
 
-my $LGTSEQ_ANALYSIS = '1.03';
+my $LGTSEQ_ANALYSIS = '1.05';
 
 use lib ( '/home/ksieber/perl5/lib/perl5/', '/local/projects-t3/HLGT/scripts/lgtseek/lib/', '/local/projects/ergatis/package-driley/lib/perl5/x86_64-linux-thread-multi/' );
 use warnings;
@@ -61,10 +61,6 @@ use File::Basename;
 if ( !$options{input} and !$options{input_list} ) {
     die "\n*** Error *** Please give an input.bam with --input=<FILE> or --input_list=<LIST>. Try again or use --help.\n\n";
 }
-if ( !$options{output_dir} ) {
-    print "It is HIGHLY recommended you STOP, restart, and use a --output_dir=</some/path/>.\n";
-    sleep 60;
-}
 
 ## Initialize LGTSeek.pm
 my $lgtseek = LGTSeek->new2( \%options );
@@ -85,13 +81,13 @@ my $inputs = setup_input( \%options );
 foreach my $input (@$inputs) {
     ## Setup output directory
     my ( $name, $path, $suf ) = fileparse( $input, $lgtseek->{suffix_regex} );
-    my $output_dir = $lgtseek->{output_dir} ? $lgtseek->{output_dir} : "$path/lgtseq/";
+    my $output_dir = $lgtseek->{output_dir} ? $lgtseek->{output_dir} : $path;
     chomp $name;
     my $subdir     = $name;
     my @split_path = split( /\//, $path );
     my $tcga_dir   = $split_path[-1];
     if ( $lgtseek->{tcga_dirs} == 1 ) { $output_dir = $output_dir . "/$tcga_dir\/" unless ( $output_dir =~ /$tcga_dir\/*$/ ); }
-    if ( $lgtseek->{subdirs} == 1 )   { $output_dir = $output_dir . "/$subdir\/"   unless ( $lgtseek->{output_dir} =~ /$subdir\/*$/ ); }
+    if ( $lgtseek->{subdirs} == 1 )   { $output_dir = $output_dir . "/$subdir\/"   unless ( $output_dir =~ /$subdir\/*$/ ); }
     $output_dir =~ s/\/{2,}/\//g;
     run_cmd("mkdir -p -m u=rwx,g=rwx,o= $output_dir");
 
@@ -306,37 +302,42 @@ foreach my $input (@$inputs) {
         &print_tab( "$output_dir/$name\_post_processing.tab", \@header, \@vals );
 
         print STDERR "======== LGT-ALN-HG19 =======\n";
-        my $hg19_lgt_bam = $lgtseek->runBWA(
-            {   input_bam   => $blast_validated_lgt->{bam},
-                output_bam  => 1,
-                threads     => $lgtseek->{threads},
-                output_dir  => $output_dir,
-                reference   => $lgtseek->{hg19_ref},
-                overwrite   => $lgtseek->{overwrite},
-                cleanup_sai => 1,
-            }
-        );
-
-        # Fix the header of the final LGT bam.
-        if ( defined $hg19_lgt_bam and $lgtseek->empty_chk( { input => $hg19_lgt_bam->[0] } ) != 1 ) {
-            my $Picard        = "$lgtseek->{java_bin} \-$lgtseek->{java_opts} -jar $lgtseek->{Picard_jar}";
-            my $cmd           = "$Picard AddCommentsToBam I=$hg19_lgt_bam->[0] O=$output_dir/$name\_lgt_final.bam";
-            my $header_string = $lgtseek->_run_cmd("samtools view -H $blast_validated_lgt->{bam}");
-            my @pg_list       = grep( /^\@PG|^\@CO/, split( /\n/, $header_string ) );
-            map {
-                if ( $_ !~ /ID:bwa/ ) {
-                    my @split_pg_line = split( /\t/, $_ );
-                    shift(@split_pg_line);    # remove BWA \@PG line
-                    my $comment_line = join( "\t", @split_pg_line );
-                    $cmd = $cmd . " C=\"$comment_line\"";
+        if ( $blast_validated_lgt->{count} == 0 ) {
+            print STDERR "======== LGT-ALN-HG19: Skipping ALN because there are zero blast_validated_lgt ========\n";
+        }
+        else {
+            my $hg19_lgt_bam = $lgtseek->runBWA(
+                {   input_bam   => $blast_validated_lgt->{bam},
+                    output_bam  => 1,
+                    threads     => $lgtseek->{threads},
+                    output_dir  => $output_dir,
+                    reference   => $lgtseek->{hg19_ref},
+                    overwrite   => $lgtseek->{overwrite},
+                    cleanup_sai => 1,
                 }
-            } @pg_list;
+            );
+            ## Fix the header of the final LGT bam.
+            print STDERR "======== LGT-ALN-HG19: Adjusting final_lgt.bam header ========\n";
+            if ( defined $hg19_lgt_bam and $lgtseek->empty_chk( { input => $hg19_lgt_bam->[0] } ) != 1 ) {
+                my $Picard        = "$lgtseek->{java_bin} \-$lgtseek->{java_opts} -jar $lgtseek->{Picard_jar}";
+                my $cmd           = "$Picard AddCommentsToBam I=$hg19_lgt_bam->[0] O=$output_dir/$name\_lgt_final.bam";
+                my $header_string = $lgtseek->_run_cmd("samtools view -H $blast_validated_lgt->{bam}");
+                my @pg_list       = grep( /^\@PG|^\@CO/, split( /\n/, $header_string ) );
+                map {
+                    if ( $_ !~ /ID:bwa/ ) {
+                        my @split_pg_line = split( /\t/, $_ );
+                        shift(@split_pg_line);    # remove BWA \@PG line
+                        my $comment_line = join( "\t", @split_pg_line );
+                        $cmd = $cmd . " C=\"$comment_line\"";
+                    }
+                } @pg_list;
 
-            # Run the Picard command to add comments from previous analyses to the final bam.
-            $lgtseek->_run_cmd("$cmd");
+                # Run the Picard command to add comments from previous analyses to the final bam.
+                $lgtseek->_run_cmd("$cmd");
 
-            # Remove the old lgt_final.bam aligned to hg19 with the wrong header.
-            $lgtseek->_run_cmd("rm $hg19_lgt_bam->[0]");
+                # Remove the old lgt_final.bam aligned to hg19 with the wrong header.
+                $lgtseek->_run_cmd("rm $hg19_lgt_bam->[0]");
+            }
         }
 
         # Run blast and keep raw output

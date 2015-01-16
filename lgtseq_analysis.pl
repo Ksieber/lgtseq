@@ -22,7 +22,7 @@ Internal methods are usually preceded with "_"
 
 =cut
 
-my $LGTSEQ_ANALYSIS = '1.05';
+my $LGTSEQ_ANALYSIS = '1.06';
 
 use lib ( '/home/ksieber/perl5/lib/perl5/', '/local/projects-t3/HLGT/scripts/lgtseek/lib/', '/local/projects/ergatis/package-driley/lib/perl5/x86_64-linux-thread-multi/' );
 use warnings;
@@ -100,7 +100,7 @@ foreach my $input (@$inputs) {
 
     # Primary aln to Human.
     if ( $lgtseek->{aln1_human} ) {
-        print STDERR "======== RUNBWA-Human1 ========\n";
+        print STDERR "===== RUNBWA-Human1 =====\n";
         my $human_bam1;
         ## Map input bam @ hg19
         if ( $input =~ /\.bam$/ ) {
@@ -138,7 +138,7 @@ foreach my $input (@$inputs) {
 
     # Prelim_filter
     if ( $lgtseek->{prelim_filter} or $lgtseek->{name_sort_input} ) {
-        print STDERR "======== Prelim_filter ========\n";
+        print STDERR "===== Prelim_filter =====\n";
         my $prelim_filtered_bam = $lgtseek->prelim_filter(
             {    ## &prelim_filter returns an array
                 input_bam       => $input,
@@ -156,7 +156,7 @@ foreach my $input (@$inputs) {
 
     # Secondary aln human
     if ( $lgtseek->{aln2_human} ) {
-        print STDERR "======== RUNBWA-Human2 ========\n";
+        print STDERR "===== RUNBWA-Human2 =====\n";
         my $human_bam2 = $lgtseek->runBWA(
             {                                                       ## &runBWA returns an array
                 input_bam   => $input,
@@ -172,7 +172,7 @@ foreach my $input (@$inputs) {
     }
 
     # Align to the Bacteria.
-    print STDERR "======== RUNBWA-Bacteria ========\n";
+    print STDERR "===== RUNBWA-Bacteria =====\n";
     my $bacterial_bams = $lgtseek->runBWA(
         {    ## &runBWA returns an array
             input_bam      => $input,
@@ -186,7 +186,7 @@ foreach my $input (@$inputs) {
     );
 
     # Postprocess the BWA mappings to human and bacteria
-    print STDERR "======= POSTPROCESS =======\n";
+    print STDERR "===== POSTPROCESS =====\n";
     my $host_bams = ["$input"];                 ## Put human input bam into array ref for post-proc.
     my $pp_data   = $lgtseek->bwaPostProcess(
         {   donor_bams    => $bacterial_bams,
@@ -219,14 +219,14 @@ foreach my $input (@$inputs) {
     ## LGT Analysis.
     ##++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     ## Check to make sure we found LGT.
-    print STDERR "======== LGT ========\n";
+    print STDERR "====== LGT ======\n";
     if ( $lgtseek->empty_chk( { input => $pp_data->{files}->{lgt_donor} } ) ) {
         print STDERR "***Warning*** No LGT in: $pp_data->{files}->{lgt_donor}\. Skipping further LGT analysis.\n";
     }
     else {
         # Prinseq filter the putative lgts
         # This is for manual curation later. Use all potential LGT for further analysis.
-        print STDERR "======== LGT-PRINSEQ =======\n";
+        print STDERR "======= LGT-PRINSEQ =======\n";
         my $filtered_bam = $lgtseek->prinseqFilterBam(
             {   input_bam  => $pp_data->{files}->{lgt_host},
                 output_dir => $output_dir,
@@ -239,7 +239,7 @@ foreach my $input (@$inputs) {
         &print_tab( "$output_dir/$name\_post_processing.tab", \@header, \@vals );
 
         # Calculate BWA LCA's for LGTs
-        print STDERR "========== LGT-BWA-LCA  ==========\n";
+        print STDERR "======= LGT-BWA-LCA  =======\n";
         $lgtseek->runBWA(
             {   input_bam      => $filtered_bam->{bam},
                 output_dir     => "$output_dir\/lgt_bwa-lca/",
@@ -253,7 +253,7 @@ foreach my $input (@$inputs) {
         );
 
         # Blast & get best hits
-        print STDERR "========== LGT-BESTBLAST2 ==========\n";
+        print STDERR "======= LGT-BESTBLAST2 =======\n";
         my $best_blasts = $lgtseek->bestBlast2(
             {   bam        => $filtered_bam->{bam},
                 db         => $lgtseek->{path_to_blastdb},
@@ -265,7 +265,7 @@ foreach my $input (@$inputs) {
             }
         );
 
-        print STDERR "======== LGT-Blast-LCA =========\n";
+        print STDERR "======= LGT-Blast-LCA =======\n";
         my $lgt_blast_lca = $lgtseek->blast2lca(
             {   blast          => $best_blasts->{overall_blast},
                 output_dir     => "$output_dir\/lgt_blast-lca/",
@@ -275,7 +275,7 @@ foreach my $input (@$inputs) {
         );
 
         # LGTFinder
-        print STDERR "======== LGT-FINDER =========\n";
+        print STDERR "======= LGT-FINDER =======\n";
         my $valid_lgts = $lgtseek->runLgtFinder(
             {   input_file_list => $best_blasts->{list_file},
                 lineage1        => $lgtseek->{donor_lineage},
@@ -287,7 +287,7 @@ foreach my $input (@$inputs) {
             }
         );
 
-        print STDERR "======== VALID-BLAST-PP =========\n";
+        print STDERR "======= VALID-BLAST-PP =======\n";
         ## Create a new bam from blast validation & lgtfinder results and add #'s to post_processing.tab
         my $blast_validated_lgt = $lgtseek->validated_bam(
             {   input    => $filtered_bam->{bam},
@@ -301,9 +301,9 @@ foreach my $input (@$inputs) {
         push( @vals,   "$blast_validated_lgt->{count}" );
         &print_tab( "$output_dir/$name\_post_processing.tab", \@header, \@vals );
 
-        print STDERR "======== LGT-ALN-HG19 =======\n";
+        print STDERR "======= LGT-ALN-HG19 =======\n";
         if ( $blast_validated_lgt->{count} == 0 ) {
-            print STDERR "======== LGT-ALN-HG19: Skipping ALN because there are zero blast_validated_lgt ========\n";
+            print STDERR "======= LGT-ALN-HG19: Skipping ALN because there are zero blast_validated_lgt =======\n";
         }
         else {
             my $hg19_lgt_bam = $lgtseek->runBWA(
@@ -317,7 +317,7 @@ foreach my $input (@$inputs) {
                 }
             );
             ## Fix the header of the final LGT bam.
-            print STDERR "======== LGT-ALN-HG19: Adjusting final_lgt.bam header ========\n";
+            print STDERR "======= LGT-ALN-HG19: Adjusting final_lgt.bam header =======\n";
             if ( defined $hg19_lgt_bam and $lgtseek->empty_chk( { input => $hg19_lgt_bam->[0] } ) != 1 ) {
                 my $Picard        = "$lgtseek->{java_bin} \-$lgtseek->{java_opts} -jar $lgtseek->{Picard_jar}";
                 my $cmd           = "$Picard AddCommentsToBam I=$hg19_lgt_bam->[0] O=$output_dir/$name\_lgt_final.bam";
@@ -358,7 +358,7 @@ foreach my $input (@$inputs) {
 
         # Prinseq filter the putative microbiome reads
         # Use only prinseq quality reads for microbiome analysis
-        print STDERR "===== Microbiome-PRINSEQ =====\n";
+        print STDERR "======= Microbiome-PRINSEQ =======\n";
         my $filtered_bam = $lgtseek->prinseqFilterBam(
             {   input_bam  => $pp_data->{files}->{microbiome_donor},
                 output_dir => $output_dir,
@@ -370,7 +370,7 @@ foreach my $input (@$inputs) {
         push( @vals,   $filtered_bam->{count} );
         &print_tab( "$output_dir/$name\_post_processing.tab", \@header, \@vals );
 
-        print STDERR "==== Microbiome-BWA-LCA ====\n";
+        print STDERR "======= Microbiome-BWA-LCA =======\n";
         $lgtseek->runBWA(
             {   input_bam      => $filtered_bam->{bam},
                 output_dir     => "$output_dir\/microbiome_bwa-lca/",
@@ -393,7 +393,7 @@ foreach my $input (@$inputs) {
     ## Calculate coverage of LGT on human side. (Not apropriate most the time)
     ##++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     if ( $lgtseek->{lgt_coverage} == 1 ) {
-        print STDERR "====== Calculating Coverage of Hg19 LGT ======\n";
+        print STDERR "======= Calculating Coverage of Hg19 LGT =======\n";
         $lgtseek->mpileup(
             {   input      => "$output_dir\/$name\_lgt_host_filtered.bam",
                 output_dir => $output_dir,
@@ -406,8 +406,10 @@ foreach my $input (@$inputs) {
     }
 
     $lgtseek->time_check;
-    print_complete( \%options, "LGTSEQ_ANALYSIS_VERSION=$LGTSEQ_ANALYSIS\tLGTSeek.pm_VERSION=$LGTSeek::VERSION" );
 }
+
+$lgtseek->time_check;
+print_complete( \%options, "LGTSEQ_ANALYSIS_VERSION=$LGTSEQ_ANALYSIS\tLGTSeek.pm_VERSION=$LGTSeek::VERSION" );
 
 ## Subroutines
 sub print_tab {

@@ -22,7 +22,7 @@ Internal methods are usually preceded with "_"
 
 =cut
 
-my $LGTSEQ_ANALYSIS = '1.06';
+my $LGTSEQ_ANALYSIS = '1.07';
 
 use lib ( '/home/ksieber/perl5/lib/perl5/', '/local/projects-t3/HLGT/scripts/lgtseek/lib/', '/local/projects/ergatis/package-driley/lib/perl5/x86_64-linux-thread-multi/' );
 use warnings;
@@ -352,7 +352,6 @@ foreach my $input (@$inputs) {
     ## Check to make sure we found Microbiome Reads. If no microbiome reads skip this step.
     if ( $lgtseek->empty_chk( { input => "$output_dir\/$name\_microbiome.bam" } ) ) {
         print STDERR "***Warning*** No Microbiome reads in: $output_dir\/$name\_microbiome.bam. Skipping microbiome LCA calculation.\n";
-        print_complete( \%options, "LGTSEQ_ANALYSIS_VERSION=$LGTSEQ_ANALYSIS" );
     }
     else {
 

@@ -38,7 +38,7 @@ my $results = GetOptions(
     'prelim_filter=i',   'seqs_per_file=i', 'keep_softclip=i', 'Qsub|q=i',          'excl=i',              'sub_mem=s',     'sub_name=s',     'threads|t=i',
     'projects=s',        'output_dir|o=s',  'subdirs=i',       'overwrite=s',       'samtools_bin=s',      'ergatis_dir=s', 'output_list=s',  'bin_dir=s',
     'fs=s',              'clovr=s',         'diag',            'verbose|V=i',       'print_hostname|ph=i', 'config_file=s', 'help|h',         'help_full|?',
-    'tcga_dirs=i',       'aln_human=i',     'hg19_ref=s',      'no_gal=i',          'hostname=s',          'sub_mail=s',    'Qsub_iterate=i', 'cleanup_download=i',
+    'tcga_dirs=i',       'aln_human=i',     'hg19_ref=s',      'no_gal=i',          'hostname=s',          'sub_mail=s',    'Qsub_iterate|Q=i', 'cleanup_download=i',
     'launch_analysis=i', 'analysis_dir=s',  'analysis_iter=i', 'name_sort_check=i', 'analysis_threads=i',  'analysis_mem=s'
 ) or die "Error: Unrecognized command line option. Please try again.\n";
 use print_call;

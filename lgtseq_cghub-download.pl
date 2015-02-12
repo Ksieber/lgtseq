@@ -37,7 +37,9 @@ use run_cmd;
 use print_call;
 
 my %options;
-my $results = GetOptions( \%options, 'input=s', 'input_list=s', 'output_dir=s', 'threads=i', 'rate_limit=s', 'cghub_key=s', 'Qsub=i', 'sub_mail=s', 'help|?', 'verbose=i', 'Qsub_iterate=i', )
+my $results
+    = GetOptions( \%options, 'input|i=s', 'input_list|I=s', 'output_dir|o=s', 'threads|t=i', 'rate_limit=s', 'cghub_key=s', 'Qsub|q=i', 'sub_mail=s', 'sub_name=s', 'help|?', 'verbose=i',
+    'Qsub_iterate|Q=i', )
     or die "Error: Unrecognized command line option. Please try again.\n";
 
 if ( $options{help} ) {
@@ -48,6 +50,7 @@ if ( $options{help} ) {
     --threads=              Number of threads to use for download
     --Qsub=                 1= Submit job to the grid.
       --sub_name=
+      --sub_mail=
     --rate_limit        
     --cghub_key=            [~/.lgtseq.config]
     --verbose=              <0|1> [0] 1= Verbose reporting.

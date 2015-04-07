@@ -8,21 +8,17 @@ lgtseq_analysis.pl
 
 Search an bam for bacterial-human LGT.
 
-=head1 DESCRIPTION
+=head1 EXAMPLE
 
+lgtseq_analysis.pl --input=/some/input.bam --output_dir=/directory/for/output/ --qsub=1 --threads=4
 
 =head1 AUTHOR - Karsten Sieber
 
 e-mail: Karsten.sieber@gmail.com
 
-=head1 APPENDIX
-
-The rest of the documentation details each of the object methods.
-Internal methods are usually preceded with "_"
-
 =cut
 
-my $LGTSEQ_ANALYSIS = '1.07';
+my $LGTSEQ_ANALYSIS = '1.08';
 
 use lib ( '/home/ksieber/perl5/lib/perl5/', '/local/projects-t3/HLGT/scripts/lgtseek/lib/', '/local/projects/ergatis/package-driley/lib/perl5/x86_64-linux-thread-multi/' );
 use warnings;
@@ -36,7 +32,7 @@ my $results = GetOptions(
     'lgt_coverage=i', 'max_overlap=i',       'min_length=i',     'bin_dir=s',       'samtools_bin=s',    'ergatis_bin=s',     'prinseq_bin=s',    'donor_lineage=s',
     'host_lineage=s', 'threads|t=i',         'taxon_host=s',     'taxon_dir=s',     'taxon_idx_dir=s',   'path_to_blastdb=s', 'best_hits_only=i', 'evalue_cutoff=s',
     'verbose|V=i',    'print_hostname|ph=i', 'conf_file=s',      'help|h',          'help_full|?',       'workflow_help',     'conf_help',        'sub_mail=s',
-    'Qsub_iterate=i', 'overwrite=i',         'project=s',
+    'Qsub_iterate=i', 'overwrite=i',         'project=s',        'delete_input=i',
 ) or die "\n*** Error *** Unrecognized command line option. Please try again.\n\n";
 
 ## Check if the user needs help information
@@ -64,6 +60,7 @@ if ( !$options{input} and !$options{input_list} ) {
 
 ## Initialize LGTSeek.pm
 my $lgtseek = LGTSeek->new2( \%options );
+my $delete_input = defined $options{delete_input} ? $options{delete_input} : $lgtseek->{delete_input};
 
 ## Qsub the job instead of running it
 if ( $options{Qsub} or $options{Qsub_iterate} ) {
@@ -77,6 +74,7 @@ print_call( \%options, "LGTSEQ_ANALYSIS_VERSION=$LGTSEQ_ANALYSIS\tLGTSeek.pm_VER
 
 ## Setup array ref of inputs
 my $inputs = setup_input( \%options );
+if ( defined $options{input_list} ) { $lgtseek->{subdirs} = defined $options{subdirs} ? $options{subdirs} : 1; }
 
 foreach my $input (@$inputs) {
     ## Setup output directory
@@ -115,9 +113,10 @@ foreach my $input (@$inputs) {
                     cleanup_sai => 1,
                 }
             );
+            if ( defined $delete_input and $delete_input == 1 ) { $lgtseek->_run_cmd("rm $input") if ( -e $input ); }
         }
         ## Map fastqs @ hg19
-        elsif ( $input =~ /.fq$/ || $input =~ /.fastq$/ || $input =~ /.fastq.gz$/ ) {
+        elsif ( $input =~ /.f\w{0,3}q(.gz)?$/ ) {
             my ( $in1, $in2 ) = split( /,/, $input );    ## split input if needed
             my ( $input_base, $input_dir, $input_suffix ) = fileparse( $in1, @{ $lgtseek->{fastq_suffix_list} } );
             ## &runBWA returns an array
@@ -132,6 +131,7 @@ foreach my $input (@$inputs) {
                     cleanup_sai => 1,
                 }
             );
+            if ( defined $delete_input and $delete_input == 1 ) { $lgtseek->_run_cmd("rm $in1") if ( -e "$in1" ); $lgtseek->_run_cmd("rm $in2") if ( -e "$in2" ); }
         }
         $input = $human_bam1->[0];
     }
@@ -146,19 +146,20 @@ foreach my $input (@$inputs) {
                 name_sort_input => $lgtseek->{name_sort_input},     ## Default = 0
                 sort_mem        => $lgtseek->{sort_mem},            ## Default = 1G lgtseek default. lgt_prep overides to 40G.
                 threads         => $lgtseek->{threads},             ## Default = 1
-                split_bam       => "0",                             ## Default = 1
-                keep_softclip   => $lgtseek->{keep_softclip},       ## Default = 1, better to split with lgt_seq_prelim
+                split_bam       => "0",                             ## Default = 1, better to split with lgtseq_prelim-filter.pl than in lgtseq_analysis.pl
+                keep_softclip   => $lgtseek->{keep_softclip},       ## Default = 1,
                 overwrite       => $lgtseek->{overwrite},           ## Default = 0
             }
-        );                                                          ## ^^                              ^^
-        $input = $prelim_filtered_bam->[0];                         ## This works because we are not splitting bams
+        );
+        if ( defined $delete_input and $delete_input == 1 ) { $lgtseek->_run_cmd("rm $input") if ( -e $input ); }    ##                             ^^
+        $input = $prelim_filtered_bam->[0];                                                                          ## This works because we are not splitting bams
     }
 
     # Secondary aln human
     if ( $lgtseek->{aln2_human} ) {
         print STDERR "===== RUNBWA-Human2 =====\n";
         my $human_bam2 = $lgtseek->runBWA(
-            {                                                       ## &runBWA returns an array
+            {                                                                                                        ## &runBWA returns an array
                 input_bam   => $input,
                 output_bam  => 1,
                 threads     => $lgtseek->{threads},
@@ -427,52 +428,6 @@ sub help {
     --help_full|?           Full help info on options.\n";
 }
 
-sub help_full {
-    die "   LGTSEQ_ANALYSIS_VERSION    $LGTSEQ_ANALYSIS
-    Help: This script takes a bam and identifies bacterial human LGT.
-         _____
-    ____/Input\\_________________________________________________________________________________
-    --input|i=              <Input BAM or fastq> **MUST** be name sorted. Also use --prelim_filter & --name_sort_input for position sorted inputs.
-    --input_list|I=         <List of inputs> 1 per line.
-         ______
-    ____/Output\\________________________________________________________________________________
-    --output_dir|o=         Directory for all output. Example: /path/to/{output_dir}/{tcga_dirs}/{subdirs}/ or /path/to/{output_dir}/{subdirs}/
-     --tcga_dirs=           <0|1> [0] 1= Make the sub-dir prefix the input's last folder in path (Maintain TCGA analysis_id directory structure)
-      --subdirs=            <0|1> [0] 1= Make the sub-dir prefix in output_dir based on input name.
-    --overwrite=            <0|1> [1] 1= Overwrite previous data. 
-         _______________________
-    ____/Primary Human Alignment\\_______________________________________________________________
-    --aln1_human=           <0|1> [0] 1= Primary aln to hg19. MUST be used if input=fastq's
-         _____________________
-    ____/Preliminary Filtering\\__________________________________________________________________
-    --prelim_filter=        <0|1> [0] 1= Filter a human mapped bam, keeping potential LGT & Microbiome reads.
-    --name_sort_input=      <0|1> [0] 1= Resort the input bam by read names.
-    --keep_softclip=        <0|1> [1] 1= Keep soft clipped reads >=24 bp (Reads potentially on LGT)
-    --sort_mem=             [1G] Mem per thread to sort with. Careful this corresponds with --threads. 
-         _________________________
-    ____/Secondary Human Alignment\\______________________________________________________________
-    --aln2_human=           <0|1> [0] 1= Secondary aln to hg19. Useful for mapping to standarized hg19 after prelim_filter.
-         __________________
-    ____/Submit to SGE-grid\\_____________________________________________________________________
-    --Qsub|q=               <0|1> [0] 1= qsub the job to the grid.
-    --Qsub_iterate=         <0|1> [0] 1= Iterate over --input_list instead of qsub'ing each file from a list. 
-      --threads=|t          [1] # of CPU's to use for multithreading BWA sampe
-      --sub_mem|mf=         [4G] Min mem to qsub for on grid
-      --sub_name=           [lgtseq] 
-      --sub_mail=           [0] 1= email user\@som.umaryland.edu when job is complete & with stats. Can also specify --sub_mail=specific\@email.foo
-      --project=            Grid project to use. 
-      --print_hostname|ph=  <0|1> [0] Print hostname. Defaults to 1 if verbose=1.
-         ________________
-    ____/Help Information\\_______________________________________________________________________
-    --verbose|V             <0|1> [0] 1= Verbose reporting of progress. 0 =Turns off reports. 
-    --help|h                Help Basic Info
-    --help_full|?           Help Full Info
-    --workflow_help         Examples how to use optional portions of lgt_seq to increase efficiency.
-    --conf_file=            [~/.lgtseek.conf]
-    --conf_help             Help Information on lgtseek.conf requirements.
-    _____________________________________________________________________________________________\n";
-}
-
 sub workflow_help {
     die "----------------------------------------------------------------------------------------
     Workflow of modules:
@@ -488,7 +443,7 @@ sub workflow_help {
 ## This section isn't complete yet and not check to make sure these param's ARE in the .conf file
 sub conf_help {
     die "== The .lgtseek.conf file options. Options with \"\*\" are mandatory. This list is NOT an exhaustive list of mandatory options (yet).
-== The format of the ~/.lgtseek.conf is white space delimited \$option_name \\t \$option_value. ex: threads    4
+== The format of the ~/.lgtseek.conf is white space delimited \$option_name \\t \$option_value.
 == When using lgtseek->new2(\%options), any options passed through \%options will over ride any of these defaults, otherwise all these defaults are loaded through new2.
 == lgtseek->new2() will look for the .lgtseek.conf file in the user's home directory (~/.lgtseek.conf). If it isn't there it needs to be passed with --conf_file=/path/to/.lgtseek.conf 
              _________
@@ -497,6 +452,7 @@ sub conf_help {
         aln2_human              [0]             Align the input to the hg19 ref AFTER prelim-filtering.
         prelim_filter           [0]             Keep only M_U and U_U reads, and potentially soft clipped reads (see below)
         name_sort_input         [0]             All inputs MUST be converted to name sorted format if they aren't already. 
+        delete_input            [1]             Delete input files after Aln to hg19 and/or prelim-filtering. Useful for removing fastq and downloaded files to minimize disk space footprint.
              ______________
         ____/Config Options\\_________________________________________________________________________
         threads                 [4]             Number of threads used.
@@ -511,7 +467,6 @@ sub conf_help {
         seqs_per_file           [50000000]      Number of reads per split prelim bam. 
         max_overlap             [5]             In blast validation, when looking for reads on the LGT, the max number of bases blast results can overlap. 
         min_length              [15]            In blast validation, when looking for reads on the LGT, the min number of bases on the host & donor.
-        cleanup_download        [1]             If a file was downloaded in prelim-filtering, delete it after filtering is complete. 
         retry_attempts          [3]             Number of attempts to download a file. 
         rate_limit              [10]            Mb/s download rate limit. 
              __________
@@ -543,3 +498,49 @@ sub conf_help {
         \n";
 }
 
+sub help_full {
+    die "   LGTSEQ_ANALYSIS_VERSION    $LGTSEQ_ANALYSIS
+    Help: This script takes a bam and identifies bacterial human LGT.
+         _____
+    ____/Input\\_________________________________________________________________________________
+    --input|i=              <Input BAM or fastq> **MUST** be name sorted. Also use --prelim_filter & --name_sort_input for position sorted inputs.
+    --input_list|I=         <List of inputs> 1 per line.
+    --delete_input=         <0|1> [0] 1= DELETE input after alignment to hg19 and/or prelim_filtering. 
+         ______
+    ____/Output\\________________________________________________________________________________
+    --output_dir|o=         Directory for all output. Example: /path/to/{output_dir}/{tcga_dirs}/{subdirs}/ or /path/to/{output_dir}/{subdirs}/
+     --tcga_dirs=           <0|1> [0] 1= Make the sub-dir prefix the input's last folder in path (Maintain TCGA analysis_id directory structure)
+      --subdirs=            <0|1> [0] 1= Make the sub-dir prefix in output_dir based on input name.
+    --overwrite=            <0|1> [1] 1= Overwrite previous data. 
+         _______________________
+    ____/Primary Human Alignment\\_______________________________________________________________
+    --aln1_human=           <0|1> [0] 1= Primary aln to hg19. MUST be used if input=fastq's
+         _____________________
+    ____/Preliminary Filtering\\__________________________________________________________________
+    --prelim_filter=        <0|1> [0] 1= Filter a human mapped bam, keeping potential LGT & Microbiome reads.
+    --name_sort_input=      <0|1> [0] 1= Resort the input bam by read names.
+    --keep_softclip=        <0|1> [1] 1= Keep soft clipped reads >=24 bp (Reads potentially on LGT)
+    --sort_mem=             [1G] Mem per thread to sort with. Careful this corresponds with --threads. 
+         _________________________
+    ____/Secondary Human Alignment\\______________________________________________________________
+    --aln2_human=           <0|1> [0] 1= Secondary aln to hg19. Useful for mapping to standarized hg19 after prelim_filter.
+         __________________
+    ____/Submit to SGE-grid\\_____________________________________________________________________
+    --Qsub|q=               <0|1> [0] 1= qsub the job to the grid.
+    --Qsub_iterate=         <0|1> [0] 1= Submit job to the grid to iterate over --input_list.
+      --threads=|t          [1] # of CPU's to use for multithreading BWA sampe
+      --sub_mem|mf=         [4G] Min mem to qsub for on grid
+      --sub_name=           [lgtseq] 
+      --sub_mail=           [0] 1= email user\@som.umaryland.edu when job is complete & with stats. Can also specify --sub_mail=specific\@email.foo
+      --project=            Grid project to use. 
+      --print_hostname|ph=  <0|1> [0] Print hostname. Defaults to 1 if verbose=1.
+         ________________
+    ____/Help Information\\_______________________________________________________________________
+    --verbose|V             <0|1> [0] 1= Verbose reporting of progress. 0 =Turns off reports. 
+    --help|h                Help Basic Info
+    --help_full|?           Help Full Info
+    --workflow_help         Examples how to use optional portions of lgt_seq to increase efficiency.
+    --conf_file=            [~/.lgtseek.conf]
+    --conf_help             Help Information on lgtseek.conf requirements.
+    _____________________________________________________________________________________________\n";
+}

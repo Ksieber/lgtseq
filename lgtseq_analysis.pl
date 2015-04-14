@@ -18,7 +18,7 @@ e-mail: Karsten.sieber@gmail.com
 
 =cut
 
-my $LGTSEQ_ANALYSIS = '1.08';
+my $LGTSEQ_ANALYSIS = '1.09';
 
 use lib ( '/home/ksieber/perl5/lib/perl5/', '/local/projects-t3/HLGT/scripts/lgtseek/lib/', '/local/projects/ergatis/package-driley/lib/perl5/x86_64-linux-thread-multi/' );
 use warnings;
@@ -59,6 +59,7 @@ if ( !$options{input} and !$options{input_list} ) {
 }
 
 ## Initialize LGTSeek.pm
+if ( defined $options{input_list} ) { $options{subdirs} = 1; }
 my $lgtseek = LGTSeek->new2( \%options );
 my $delete_input = defined $options{delete_input} ? $options{delete_input} : $lgtseek->{delete_input};
 
@@ -74,7 +75,6 @@ print_call( \%options, "LGTSEQ_ANALYSIS_VERSION=$LGTSEQ_ANALYSIS\tLGTSeek.pm_VER
 
 ## Setup array ref of inputs
 my $inputs = setup_input( \%options );
-if ( defined $options{input_list} ) { $lgtseek->{subdirs} = defined $options{subdirs} ? $options{subdirs} : 1; }
 
 foreach my $input (@$inputs) {
     ## Setup output directory

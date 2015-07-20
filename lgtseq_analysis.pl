@@ -18,7 +18,7 @@ e-mail: Karsten.sieber@gmail.com
 
 =cut
 
-my $LGTSEQ_ANALYSIS = '1.09';
+my $LGTSEQ_ANALYSIS = '1.11';
 
 use lib ( '/home/ksieber/perl5/lib/perl5/', '/local/projects-t3/HLGT/scripts/lgtseek/lib/', '/local/projects/ergatis/package-driley/lib/perl5/x86_64-linux-thread-multi/' );
 use warnings;
@@ -61,12 +61,12 @@ if ( !$options{input} and !$options{input_list} ) {
 ## Initialize LGTSeek.pm
 if ( defined $options{input_list} ) { $options{subdirs} = 1; }
 my $lgtseek = LGTSeek->new2( \%options );
-my $delete_input = defined $options{delete_input} ? $options{delete_input} : $lgtseek->{delete_input};
 
 ## Qsub the job instead of running it
 if ( $options{Qsub} or $options{Qsub_iterate} ) {
     if ( !$options{sub_name} ) { $options{sub_name} = "lgtseq"; }
     if ( !$options{project} )  { $options{project}  = $lgtseek->{project}; }
+    $options{sub_mem} = $lgtseek->{sub_mem};
     Qsub_script( \%options );
 }
 
@@ -75,6 +75,7 @@ print_call( \%options, "LGTSEQ_ANALYSIS_VERSION=$LGTSEQ_ANALYSIS\tLGTSeek.pm_VER
 
 ## Setup array ref of inputs
 my $inputs = setup_input( \%options );
+my $delete_input = defined $options{delete_input} ? $options{delete_input} : $lgtseek->{delete_input};
 
 foreach my $input (@$inputs) {
     ## Setup output directory
@@ -323,15 +324,16 @@ foreach my $input (@$inputs) {
                 my $Picard        = "$lgtseek->{java_bin} \-$lgtseek->{java_opts} -jar $lgtseek->{Picard_jar}";
                 my $cmd           = "$Picard AddCommentsToBam I=$hg19_lgt_bam->[0] O=$output_dir/$name\_lgt_final.bam";
                 my $header_string = $lgtseek->_run_cmd("samtools view -H $blast_validated_lgt->{bam}");
-                my @pg_list       = grep( /^\@PG|^\@CO/, split( /\n/, $header_string ) );
+                my @co_list       = grep( /^\@CO/, split( /\n/, $header_string ) );
                 map {
                     if ( $_ !~ /ID:bwa/ ) {
-                        my @split_pg_line = split( /\t/, $_ );
-                        shift(@split_pg_line);    # remove BWA \@PG line
-                        my $comment_line = join( "\t", @split_pg_line );
+                        my @split_co_line = split( /\t/, $_ );
+                        shift(@split_co_line);    # remove BWA \@PG line
+                        my $comment_line = join( "\t", @split_co_line );
                         $cmd = $cmd . " C=\"$comment_line\"";
                     }
-                } @pg_list;
+                } @co_list;
+                $cmd = $cmd . " C=\"\@CO\tID:BWA-Hg19\tPG:LGTSeek\tVN:$LGTSeek::VERSION\"";
 
                 # Run the Picard command to add comments from previous analyses to the final bam.
                 $lgtseek->_run_cmd("$cmd");

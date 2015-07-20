@@ -155,7 +155,7 @@ foreach my $input (@$inputs) {
             {   cmd      => $cmd,
                 wd       => $lgtseek->{output_dir},
                 sub_name => $sub_name,
-                sub_mem  => $options{sub_mem},
+                sub_mem  => $lgtseek->{sub_mem},
                 sub_mail => $options{sub_mail},
                 threads  => $lgtseek->{threads},
                 project  => $lgtseek->{project},

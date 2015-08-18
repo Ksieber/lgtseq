@@ -81,8 +81,11 @@ my @bam_suffix_to_merge = (
     'lgt_host_filtered_validated.bam', 'integration_site_donor_donor.bam', 'microbiome_filtered.bam',         'lgt_final.bam'
 );
 
-my @txt_suffix_to_merge = ( 'by_clone.txt', 'by_trace.txt', 'post_processing.tab', 'lgt_host_lineage1.out',
-    'lgt_host_lineage2.out', 'microbiome_lca-bwa_independent_lca.txt', 'microbiome_lca-bwa.txt', 'lgt_lca-bwa.txt', );
+my @txt_suffix_to_merge = (
+    'by_clone.txt',          'by_trace.txt',                           'post_processing.tab',    'lgt_host_lineage1.out',
+    'lgt_host_lineage2.out', 'microbiome_lca-bwa_independent_lca.txt', 'microbiome_lca-bwa.txt', 'lgt_lca-bwa.txt',
+    'lgt__lca-bwa.txt'
+);
 
 if ($merge) { &merge_dirs($input); }
 if ($iter)  { &iter_dirs($input); }
@@ -192,23 +195,23 @@ sub merge_dirs {
 
     ## Process all the bam files for merging
     foreach my $bam_suffix (@bam_suffix_to_merge) {
-        my @list_to_merge;
+        my %bams_to_merge;
         foreach my $dir (@$input) {
             chomp( my @tmp_list_to_merge = `find $dir -name '*$bam_suffix'` );
             if ( scalar( @tmp_list_to_merge == 0 ) ) { print STDERR "* Warning * : Did not find any *$bam_suffix in: $dir\n"; next; }
-            push( @list_to_merge, @tmp_list_to_merge );
+            foreach my $file (@tmp_list_to_merge) { $bams_to_merge{$file}++; }
         }
-        if ( scalar( @list_to_merge == 0 ) ) { print STDERR "*** Warning *** : Did not find any *$bam_suffix\n"; next; }
+        if ( !%bams_to_merge ) { print STDERR "*** Warning *** : Did not find any *$bam_suffix\n"; next; }
         my $output = "$output_dir/$name\_$bam_suffix";
         my $header;    ## Trying to come up with a way to grab a header while checking to make sure at least 1 file has data in it.
-        for ( my $i = 0; $i < scalar @list_to_merge; $i++ ) {
-            next if ( $lgtseek->empty_chk( { input => $list_to_merge[$i] } ) == 1 );    ## Skip the bam if it is empty
-            $header = merge_headers( $header, $list_to_merge[$i] );
+        foreach my $bam_to_check ( keys %bams_to_merge ) {
+            next if ( $lgtseek->empty_chk( { input => $bam_to_check } ) == 1 );    ## Skip the bam if it is empty
+            $header = &merge_headers( $header, $bam_to_check );
         }
-        next if ( !$header->{'SQ'} );                                                   ## If none of the bams in the @list_to_merge have data header should be undef still and we skip this suffix
+        next if ( !$header->{'SQ'} );                                              ## If none of the bams in the @list_to_merge have data header should be undef still and we skip this suffix
         open( my $out, "| samtools view -S - -bo $output" ) or die "Can not open output: $output\n";
-        print_mereged_header( $header, $out );
-        foreach my $bam (@list_to_merge) { process_bam( $bam, $out ); }
+        &print_mereged_header( $header, $out );
+        foreach my $bam ( keys %bams_to_merge ) { &process_bam( $bam, $out ); }
         close $out or die "Can't close output: $output because: $!\n";
     }
     print STDERR "====== Completed LGTSEQ-Merging ======\n";
@@ -264,8 +267,8 @@ sub process_bam {
     open( my $in_fh, "-|", "samtools view $bam" ) or die "Can not open input: $bam\n";
     my ( $bam_fn, $bam_path, $bam_suf ) = fileparse( $bam, @{ $lgtseek->{bam_suffix_list} } );
     while (<$in_fh>) {
-        chomp;
-        print $out_fh "$_";
+        chomp( my $bam_line = $_ );
+        print $out_fh "$bam_line";
         if ( defined $options{append_fn}          and $options{append_fn} == 1 )          { print $out_fh "\tFN:Z:$bam"; }
         if ( defined $options{append_tcga_id}     and $options{append_tcga_id} == 1 )     { print $out_fh "\tTI:Z:$1" if ( $bam_fn =~ /(TCGA\-\w{2}\-\w{4}\-\w{3}\-\w{3}\-\w{4})/ ); }
         if ( defined $options{append_analysis_id} and $options{append_analysis_id} == 1 ) { print $out_fh "\tAI:Z:$1" if ( $bam_path =~ /(\w{8}\-\w{4}\-\w{4}\-\w{4}\-\w{12})/ ); }

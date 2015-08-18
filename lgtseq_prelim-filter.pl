@@ -70,7 +70,7 @@ $options{output_list}   = defined $options{output_list}   ? "$options{output_lis
 if ( defined $options{input_list} ) { $options{subdirs} = 1; }
 
 my $lgtseek = LGTSeek->new2( \%options );
-my $delete_input = defined $options{delete_input} ? $options{delete_input} : $lgtseek->{delete_input};
+my $delete_input = defined $options{delete_input} ? $options{delete_input} : $lgtseek->{delete_input};  ## Currently set to 0
 
 my $inputs;
 if ( !$options{Qsub_iterate} ) {
